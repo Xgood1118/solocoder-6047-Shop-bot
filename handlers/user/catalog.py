@@ -64,9 +64,15 @@ async def process_search_input(message: Message, state: FSMContext):
     category_title = db.fetchone('SELECT title FROM categories WHERE idx=?', (category_id,))
     category_title = category_title[0] if category_title else ''
 
-    products = db.fetchall('''SELECT * FROM products 
-        WHERE tag = ? AND (LOWER(title) LIKE LOWER(?) OR LOWER(body) LIKE LOWER(?))''',
-                           (category_title, f'%{search_term}%', f'%{search_term}%'))
+    all_products = db.fetchall('''SELECT * FROM products WHERE tag = ?''', (category_title,))
+
+    search_lower = search_term.lower()
+    products = []
+    for product in all_products:
+        title = product[1] or ''
+        body = product[2] or ''
+        if search_lower in title.lower() or search_lower in body.lower():
+            products.append(product)
 
     await message.answer(f'🔍 Результаты поиска по запросу: <b>{search_term}</b>')
     await show_products(message, products, message.chat.id, state)
@@ -119,9 +125,14 @@ async def add_product_callback_handler(query: CallbackQuery, callback_data: dict
             category_title = db.fetchone('SELECT title FROM categories WHERE idx=?', (category_id,))
             category_title = category_title[0] if category_title else ''
 
-            products = db.fetchall('''SELECT * FROM products 
-                WHERE tag = ? AND (LOWER(title) LIKE LOWER(?) OR LOWER(body) LIKE LOWER(?))''',
-                                   (category_title, f'%{search_term}%', f'%{search_term}%'))
+            all_products = db.fetchall('''SELECT * FROM products WHERE tag = ?''', (category_title,))
+            search_lower = search_term.lower()
+            products = []
+            for product in all_products:
+                title = product[1] or ''
+                body = product[2] or ''
+                if search_lower in title.lower() or search_lower in body.lower():
+                    products.append(product)
 
             await show_products(query.message, products, cid, state)
         else:

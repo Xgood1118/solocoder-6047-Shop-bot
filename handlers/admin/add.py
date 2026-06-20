@@ -186,7 +186,7 @@ async def process_percentage_input(message: Message, state: FSMContext):
         admin_id = message.from_user.id
 
     if not await check_admin_category_permission(admin_id, category_idx):
-        await message.answer('У вас нет доступа к этой категории!', show_alert=True)
+        await message.answer('У вас нет доступа к этой категории!')
         await state.finish()
         return
 
@@ -260,7 +260,7 @@ async def delete_category_handler(message: Message, state: FSMContext):
             idx = data['category_index']
 
             if not await check_admin_category_permission(message.from_user.id, idx):
-                await message.answer('У вас нет доступа к этой категории!', show_alert=True)
+                await message.answer('У вас нет доступа к этой категории!')
                 return
 
             db.query(
@@ -500,7 +500,7 @@ async def process_bulk_price_change(message: Message, state: FSMContext):
         return
 
     if not await check_admin_category_permission(message.from_user.id, category_idx):
-        await message.answer('У вас нет доступа к этой категории!', show_alert=True)
+        await message.answer('У вас нет доступа к этой категории!')
         return
 
     async with state.proxy() as data:
@@ -526,11 +526,11 @@ async def process_finish_selection(message: Message, state: FSMContext):
         category_idx = data.get('category_index')
 
     if len(selected) == 0:
-        await message.answer('Выберите хотя бы один товар!', show_alert=True)
+        await message.answer('Выберите хотя бы один товар!')
         return
 
     if not await check_admin_category_permission(message.from_user.id, category_idx):
-        await message.answer('У вас нет доступа к этой категории!', show_alert=True)
+        await message.answer('У вас нет доступа к этой категории!')
         return
 
     await BulkPriceState.waiting_percentage.set()

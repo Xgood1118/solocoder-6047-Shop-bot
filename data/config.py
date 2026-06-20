@@ -1,10 +1,28 @@
 import os
+import sys
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+PLACEHOLDER_TOKENS = {"", "YOUR_BOT_TOKEN_HERE", "1234567890:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}
+
+if BOT_TOKEN in PLACEHOLDER_TOKENS:
+    print("=" * 60)
+    print("ОШИБКА: BOT_TOKEN не настроен!")
+    print("=" * 60)
+    print()
+    print("Пожалуйста, отредактируйте файл .env в корне проекта:")
+    print()
+    print("  1. Откройте Telegram и найдите @BotFather")
+    print("  2. Отправьте команду /newbot")
+    print("  3. Следуйте инструкциям, получите токен")
+    print("  4. Замените YOUR_BOT_TOKEN_HERE на реальный токен")
+    print("  5. Также укажите ваш Telegram ID в ADMINS=")
+    print()
+    sys.exit(1)
 
 PROJECT_NAME = os.getenv("PROJECT_NAME")
 
@@ -21,4 +39,8 @@ if WEBHOOK_HOST and WEBHOOK_PATH:
 else:
     WEBHOOK_URL = None
 
-ADMINS = list(map(int, os.getenv("ADMINS", "").split(",")))
+ADMINS_RAW = os.getenv("ADMINS", "")
+if ADMINS_RAW:
+    ADMINS = list(map(int, ADMINS_RAW.split(",")))
+else:
+    ADMINS = []
