@@ -50,10 +50,6 @@ async def category_callback_handler(query: CallbackQuery, callback_data: dict, s
 
     category_idx = callback_data['id']
 
-    if not await check_admin_category_permission(query.from_user.id, category_idx):
-        await query.answer('У вас нет доступа к этой категории!', show_alert=True)
-        return
-
     products = db.fetchall('''SELECT * FROM products product
     WHERE product.tag = (SELECT title FROM categories WHERE idx=?)''',
                            (category_idx,))
@@ -67,6 +63,9 @@ async def category_callback_handler(query: CallbackQuery, callback_data: dict, s
 
 
 async def check_admin_category_permission(admin_id, category_idx):
+    any_restriction = db.fetchone('SELECT 1 FROM admin_categories WHERE category_idx = ?', (category_idx,))
+    if not any_restriction:
+        return True
     result = db.fetchone('SELECT 1 FROM admin_categories WHERE admin_id = ? AND category_idx = ?',
                          (admin_id, category_idx))
     return result is not None

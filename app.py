@@ -61,6 +61,7 @@ async def on_startup(dp):
     logging.basicConfig(level=logging.INFO)
     db.create_tables()
     db.migrate_orders_table()
+    db.grant_admin_categories(config.ADMINS)
 
     await bot.delete_webhook()
     if config.WEBHOOK_URL:

@@ -98,11 +98,17 @@ async def back_to_categories_handler(query: CallbackQuery, state: FSMContext):
 async def add_product_callback_handler(query: CallbackQuery, callback_data: dict, state: FSMContext):
 
     current_state = await state.get_state()
+    cid = query.message.chat.id
+    product_id = callback_data['id']
 
-    db.query('INSERT INTO cart VALUES (?, ?, 1)',
-             (query.message.chat.id, callback_data['id']))
+    existing = db.fetchone('SELECT quantity FROM cart WHERE cid=? AND idx=?', (cid, product_id))
+    if existing:
+        db.query('UPDATE cart SET quantity = quantity + 1 WHERE cid=? AND idx=?', (cid, product_id))
+    else:
+        db.query('INSERT INTO cart VALUES (?, ?, 1)', (cid, product_id))
 
     await query.answer('Товар добавлен в корзину!')
+    await query.message.delete()
 
     if current_state and 'CatalogSearchState' in current_state:
         async with state.proxy() as data:
@@ -117,14 +123,14 @@ async def add_product_callback_handler(query: CallbackQuery, callback_data: dict
                 WHERE tag = ? AND (LOWER(title) LIKE LOWER(?) OR LOWER(body) LIKE LOWER(?))''',
                                    (category_title, f'%{search_term}%', f'%{search_term}%'))
 
-            await show_products(query.message, products, query.message.chat.id, state)
+            await show_products(query.message, products, cid, state)
         else:
             category_title = db.fetchone('SELECT title FROM categories WHERE idx=?', (category_id,))
             category_title = category_title[0] if category_title else ''
 
             products = db.fetchall('''SELECT * FROM products WHERE tag = ?''', (category_title,))
 
-            await show_products(query.message, products, query.message.chat.id, state)
+            await show_products(query.message, products, cid, state)
 
 
 async def show_products(m, products, cid, state):

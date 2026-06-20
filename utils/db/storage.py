@@ -16,14 +16,23 @@ class DatabaseManager(object):
         self.query('CREATE TABLE IF NOT EXISTS categories (idx text, title text)')
         self.query('CREATE TABLE IF NOT EXISTS wallet (cid int, balance real)')
         self.query('CREATE TABLE IF NOT EXISTS questions (cid int, question text)')
-        self.query('CREATE TABLE IF NOT EXISTS price_history (id INTEGER PRIMARY KEY AUTOINCREMENT, product_idx text, old_price int, new_price int, percentage real, admin_id int, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (product_idx) REFERENCES products(idx))')
-        self.query('CREATE TABLE IF NOT EXISTS admin_categories (admin_id int, category_idx text, PRIMARY KEY (admin_id, category_idx), FOREIGN KEY (category_idx) REFERENCES categories(idx))')
+        self.query('CREATE TABLE IF NOT EXISTS price_history (id INTEGER PRIMARY KEY AUTOINCREMENT, product_idx text, old_price int, new_price int, percentage real, admin_id int, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
+        self.query('CREATE TABLE IF NOT EXISTS admin_categories (admin_id int, category_idx text, PRIMARY KEY (admin_id, category_idx))')
 
     def migrate_orders_table(self):
         try:
             self.query('ALTER TABLE orders ADD COLUMN delivery_slot text')
         except:
             pass
+
+    def grant_admin_categories(self, admin_ids):
+        categories = self.fetchall('SELECT idx FROM categories')
+        for admin_id in admin_ids:
+            for (cat_idx,) in categories:
+                existing = self.fetchone('SELECT 1 FROM admin_categories WHERE admin_id = ? AND category_idx = ?',
+                                         (admin_id, cat_idx))
+                if not existing:
+                    self.query('INSERT OR IGNORE INTO admin_categories VALUES (?, ?)', (admin_id, cat_idx))
         
     def query(self, arg, values=None):
         if values == None:

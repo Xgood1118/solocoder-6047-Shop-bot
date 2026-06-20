@@ -174,8 +174,8 @@ async def process_name(message: Message, state: FSMContext):
 
         if 'address' in data.keys():
 
-            await confirm(message)
-            await CheckoutState.confirm.set()
+            await CheckoutState.delivery_slot.set()
+            await show_delivery_slots(message)
 
         else:
 
