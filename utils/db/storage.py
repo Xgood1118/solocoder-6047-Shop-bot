@@ -11,11 +11,19 @@ class DatabaseManager(object):
 
     def create_tables(self):
         self.query('CREATE TABLE IF NOT EXISTS products (idx text, title text, body text, photo blob, price int, tag text)')
-        self.query('CREATE TABLE IF NOT EXISTS orders (cid int, usr_name text, usr_address text, products text)')
+        self.query('CREATE TABLE IF NOT EXISTS orders (cid int, usr_name text, usr_address text, products text, delivery_slot text)')
         self.query('CREATE TABLE IF NOT EXISTS cart (cid int, idx text, quantity int)')
         self.query('CREATE TABLE IF NOT EXISTS categories (idx text, title text)')
         self.query('CREATE TABLE IF NOT EXISTS wallet (cid int, balance real)')
         self.query('CREATE TABLE IF NOT EXISTS questions (cid int, question text)')
+        self.query('CREATE TABLE IF NOT EXISTS price_history (id INTEGER PRIMARY KEY AUTOINCREMENT, product_idx text, old_price int, new_price int, percentage real, admin_id int, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (product_idx) REFERENCES products(idx))')
+        self.query('CREATE TABLE IF NOT EXISTS admin_categories (admin_id int, category_idx text, PRIMARY KEY (admin_id, category_idx), FOREIGN KEY (category_idx) REFERENCES categories(idx))')
+
+    def migrate_orders_table(self):
+        try:
+            self.query('ALTER TABLE orders ADD COLUMN delivery_slot text')
+        except:
+            pass
         
     def query(self, arg, values=None):
         if values == None:

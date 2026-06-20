@@ -1,4 +1,6 @@
 import logging
+import json
+import time
 from aiogram.dispatcher import FSMContext
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 from keyboards.inline.products_from_cart import product_markup, product_cb
@@ -9,6 +11,15 @@ from states import CheckoutState
 from loader import dp, db, bot
 from filters import IsUser
 from .menu import cart
+
+
+DELIVERY_SLOTS = {
+    'morning': {'name_ru': 'Утро', 'time_range': '09:00 - 13:00'},
+    'afternoon': {'name_ru': 'День', 'time_range': '13:00 - 18:00'},
+    'evening': {'name_ru': 'Вечер', 'time_range': '18:00 - 22:00'}
+}
+
+delivery_slot_cb = CallbackData('delivery_slot', 'slot_id')
 
 
 @dp.message_handler(IsUser(), text=cart)
@@ -190,13 +201,78 @@ async def process_address(message: Message, state: FSMContext):
     async with state.proxy() as data:
         data['address'] = message.text
 
-    await confirm(message)
-    await CheckoutState.next()
+    await CheckoutState.delivery_slot.set()
+    await show_delivery_slots(message)
 
 
-async def confirm(message):
+@dp.message_handler(IsUser(), text=back_message, state=CheckoutState.delivery_slot)
+async def process_delivery_slot_back(message: Message, state: FSMContext):
 
-    await message.answer('Убедитесь, что все правильно оформлено и подтвердите заказ.',
+    await CheckoutState.address.set()
+
+    async with state.proxy() as data:
+        await message.answer('Изменить адрес с <b>' + data['address'] + '</b>?',
+                             reply_markup=back_markup())
+
+
+@dp.callback_query_handler(IsUser(), delivery_slot_cb.filter(), state=CheckoutState.delivery_slot)
+async def process_delivery_slot_select(query: CallbackQuery, callback_data: dict, state: FSMContext):
+    slot_id = callback_data['slot_id']
+
+    if slot_id not in DELIVERY_SLOTS:
+        await query.answer('Неверный вариант.')
+        return
+
+    slot = DELIVERY_SLOTS[slot_id]
+    slot_data = {
+        'slot_id': slot_id,
+        'name_ru': slot['name_ru'],
+        'time_range': slot['time_range'],
+        'timestamp': int(time.time())
+    }
+
+    async with state.proxy() as data:
+        data['delivery_slot'] = slot_data
+
+    await query.answer(f'Выбран слот: {slot["name_ru"]}')
+    await confirm(message=query.message, state=state)
+    await CheckoutState.confirm.set()
+
+
+async def show_delivery_slots(message):
+    markup = InlineKeyboardMarkup(row_width=1)
+
+    for slot_id, slot_data in DELIVERY_SLOTS.items():
+        button_text = f'{slot_data["name_ru"]} ({slot_data["time_range"]})'
+        markup.add(InlineKeyboardButton(
+            button_text,
+            callback_data=delivery_slot_cb.new(slot_id=slot_id)
+        ))
+
+    markup.add(InlineKeyboardButton(back_message, callback_data='delivery_slot_back'))
+
+    await message.answer('Выберите удобное время доставки:', reply_markup=markup)
+
+
+@dp.callback_query_handler(IsUser(), lambda c: c.data == 'delivery_slot_back', state=CheckoutState.delivery_slot)
+async def process_delivery_slot_back_cb(query: CallbackQuery, state: FSMContext):
+    await CheckoutState.address.set()
+
+    async with state.proxy() as data:
+        await query.message.answer('Изменить адрес с <b>' + data['address'] + '</b>?',
+                                   reply_markup=back_markup())
+
+
+async def confirm(message, state):
+
+    async with state.proxy() as data:
+        delivery_slot = data.get('delivery_slot', {})
+
+    slot_text = ''
+    if delivery_slot:
+        slot_text = f'\n\n🕐 Время доставки: <b>{delivery_slot.get("name_ru", "")}</b> ({delivery_slot.get("time_range", "")})'
+
+    await message.answer(f'Убедитесь, что все правильно оформлено и подтвердите заказ.{slot_text}',
                          reply_markup=confirm_markup())
 
 
@@ -206,13 +282,10 @@ async def process_confirm_invalid(message: Message):
 
 
 @dp.message_handler(IsUser(), text=back_message, state=CheckoutState.confirm)
-async def process_confirm(message: Message, state: FSMContext):
+async def process_confirm_back(message: Message, state: FSMContext):
 
-    await CheckoutState.address.set()
-
-    async with state.proxy() as data:
-        await message.answer('Изменить адрес с <b>' + data['address'] + '</b>?',
-                             reply_markup=back_markup())
+    await CheckoutState.delivery_slot.set()
+    await show_delivery_slots(message)
 
 
 @dp.message_handler(IsUser(), text=confirm_message, state=CheckoutState.confirm)
@@ -232,12 +305,18 @@ async def process_confirm(message: Message, state: FSMContext):
                         for idx, quantity in db.fetchall('''SELECT idx, quantity FROM cart
             WHERE cid=?''', (cid,))]  # idx=quantity
 
-            db.query('INSERT INTO orders VALUES (?, ?, ?, ?)',
-                     (cid, data['name'], data['address'], ' '.join(products)))
+            delivery_slot_json = ''
+            delivery_slot_text = ''
+            if 'delivery_slot' in data:
+                delivery_slot_json = json.dumps(data['delivery_slot'], ensure_ascii=False)
+                delivery_slot_text = f'\n🕐 Время доставки: <b>{data["delivery_slot"]["name_ru"]}</b> ({data["delivery_slot"]["time_range"]})'
+
+            db.query('INSERT INTO orders (cid, usr_name, usr_address, products, delivery_slot) VALUES (?, ?, ?, ?, ?)',
+                     (cid, data['name'], data['address'], ' '.join(products), delivery_slot_json))
 
             db.query('DELETE FROM cart WHERE cid=?', (cid,))
 
-            await message.answer('Ок! Ваш заказ уже в пути 🚀\nИмя: <b>' + data['name'] + '</b>\nАдрес: <b>' + data['address'] + '</b>',
+            await message.answer('Ок! Ваш заказ уже в пути 🚀\nИмя: <b>' + data['name'] + '</b>\nАдрес: <b>' + data['address'] + '</b>' + delivery_slot_text,
                                  reply_markup=markup)
     else:
 

@@ -60,6 +60,7 @@ async def admin_mode(message: types.Message):
 async def on_startup(dp):
     logging.basicConfig(level=logging.INFO)
     db.create_tables()
+    db.migrate_orders_table()
 
     await bot.delete_webhook()
     if config.WEBHOOK_URL:
