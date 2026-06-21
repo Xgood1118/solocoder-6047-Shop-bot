@@ -63,14 +63,23 @@ async def on_startup(dp):
     db.migrate_orders_table()
     db.grant_admin_categories(config.ADMINS)
 
-    await bot.delete_webhook()
-    if config.WEBHOOK_URL:
-        await bot.set_webhook(config.WEBHOOK_URL)
+    try:
+        await bot.delete_webhook()
+        if config.WEBHOOK_URL:
+            await bot.set_webhook(config.WEBHOOK_URL)
+    except Exception as e:
+        if config.BOT_TOKEN_IS_PLACEHOLDER:
+            logging.info("Bot token — placeholder, webhook ops skipped (expected)")
+        else:
+            logging.warning(f"Webhook operation failed: {e}")
 
 
 async def on_shutdown():
     logging.warning("Shutting down..")
-    await bot.delete_webhook()
+    try:
+        await bot.delete_webhook()
+    except Exception as e:
+        logging.warning(f"Delete webhook failed on shutdown: {e}")
     await dp.storage.close()
     await dp.storage.wait_closed()
     logging.warning("Bot down")

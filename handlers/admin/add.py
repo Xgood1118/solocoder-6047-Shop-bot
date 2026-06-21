@@ -151,19 +151,31 @@ async def cancel_bulk_mode_handler(query: CallbackQuery, state: FSMContext):
 
 @dp.message_handler(IsAdmin(), text=back_message, state=BulkPriceState.waiting_percentage)
 async def cancel_bulk_price(message: Message, state: FSMContext):
+    async with state.proxy() as data:
+        category_idx = data.get('category_index')
+        data['bulk_mode'] = False
+        data['selected_products'] = []
+
     await state.finish()
+
     async with state.proxy() as data:
         data['bulk_mode'] = False
         data['selected_products'] = []
-        category_idx = data.get('category_index')
+        data['category_index'] = category_idx
 
-    category_title = db.fetchone('SELECT title FROM categories WHERE idx=?', (category_idx,))
-    category_title = category_title[0] if category_title else ''
+    category_title = ''
+    if category_idx:
+        row = db.fetchone('SELECT title FROM categories WHERE idx=?', (category_idx,))
+        if row:
+            category_title = row[0]
 
-    products = db.fetchall('''SELECT * FROM products WHERE tag = ?''', (category_title,))
+    products = []
+    if category_title:
+        products = db.fetchall('''SELECT * FROM products WHERE tag = ?''', (category_title,))
 
     await message.answer('Массовое изменение цен отменено.', reply_markup=ReplyKeyboardRemove())
-    await show_products(message, products, category_idx, state)
+    if category_idx and category_title:
+        await show_products(message, products, category_idx, state)
 
 
 @dp.message_handler(IsAdmin(), state=BulkPriceState.waiting_percentage)
@@ -543,15 +555,30 @@ async def process_finish_selection(message: Message, state: FSMContext):
 
 @dp.message_handler(IsAdmin(), text=cancel_bulk)
 async def process_cancel_bulk(message: Message, state: FSMContext):
+    current_state = await state.get_state()
+
     async with state.proxy() as data:
+        category_idx = data.get('category_index')
         data['bulk_mode'] = False
         data['selected_products'] = []
-        category_idx = data.get('category_index')
 
-    category_title = db.fetchone('SELECT title FROM categories WHERE idx=?', (category_idx,))
-    category_title = category_title[0] if category_title else ''
+    if current_state and 'BulkPriceState' in str(current_state):
+        await state.finish()
+        async with state.proxy() as data:
+            data['bulk_mode'] = False
+            data['selected_products'] = []
+            data['category_index'] = category_idx
 
-    products = db.fetchall('''SELECT * FROM products WHERE tag = ?''', (category_title,))
+    category_title = ''
+    if category_idx:
+        row = db.fetchone('SELECT title FROM categories WHERE idx=?', (category_idx,))
+        if row:
+            category_title = row[0]
+
+    products = []
+    if category_title:
+        products = db.fetchall('''SELECT * FROM products WHERE tag = ?''', (category_title,))
 
     await message.answer('Массовое изменение цен отменено.')
-    await show_products(message, products, category_idx, state)
+    if category_idx and category_title:
+        await show_products(message, products, category_idx, state)

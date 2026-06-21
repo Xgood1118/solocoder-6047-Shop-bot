@@ -9,20 +9,23 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 PLACEHOLDER_TOKENS = {"", "YOUR_BOT_TOKEN_HERE", "1234567890:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}
 
-if BOT_TOKEN in PLACEHOLDER_TOKENS:
+BOT_TOKEN_IS_PLACEHOLDER = BOT_TOKEN in PLACEHOLDER_TOKENS
+
+if BOT_TOKEN_IS_PLACEHOLDER:
     print("=" * 60)
-    print("ОШИБКА: BOT_TOKEN не настроен!")
+    print("ПРЕДУПРЕЖДЕНИЕ: BOT_TOKEN не настроен!")
     print("=" * 60)
     print()
-    print("Пожалуйста, отредактируйте файл .env в корне проекта:")
+    print("Бот запустится, но не сможет подключиться к Telegram.")
+    print("Чтобы полноценно запустить бота:")
     print()
     print("  1. Откройте Telegram и найдите @BotFather")
     print("  2. Отправьте команду /newbot")
     print("  3. Следуйте инструкциям, получите токен")
-    print("  4. Замените YOUR_BOT_TOKEN_HERE на реальный токен")
-    print("  5. Также укажите ваш Telegram ID в ADMINS=")
+    print('  4. Отредактируйте файл .env:')
+    print('     BOT_TOKEN=ваш_реальный_токен')
+    print('     ADMINS=ваш_telegram_id')
     print()
-    sys.exit(1)
 
 PROJECT_NAME = os.getenv("PROJECT_NAME")
 
